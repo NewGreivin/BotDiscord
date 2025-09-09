@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { INFORMACION_CHANNEL_ID } = require('@/utils/constantsUtil');
+const { INFORMACION_CHANNEL_ID } = require('@/utils/constansUtil');
 
 function crearInformacionEmbed() {
     return new EmbedBuilder()
