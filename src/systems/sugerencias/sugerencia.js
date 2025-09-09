@@ -14,7 +14,7 @@ const {
     APROBADAS_CHANNEL_ID,
     DENEGADAS_CHANNEL_ID,
     ADMIN_ROLE_ID
-} = require('@/utils/constantsUtil');
+} = require('@/utils/constansUtil');
 
 module.exports = (client) => {
     let suggestionCounter = loadCounter();
