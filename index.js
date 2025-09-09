@@ -4,7 +4,7 @@ const { Client, GatewayIntentBits, Partials } = require('discord.js');
 
 // Importar sistema de sugerencias
 const sugerencias = require('@/systems/sugerencias/sugerencia');
-const systemInformacion = require('@/systems/informacion/informacion');
+const { enviarInformacionSiNoExiste } = require('@/systems/informacion/informacion');
 
 const client = new Client({
     intents: [
@@ -19,7 +19,7 @@ const client = new Client({
 client.once('ready', async () => {
     console.log(`✅ Bot conectado como: ${client.user.tag}`);
 
-    await systemInformacion(client);
+    await enviarInformacionSiNoExiste(client);
 });
 
 sugerencias(client);
