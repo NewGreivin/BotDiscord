@@ -28,7 +28,7 @@ module.exports = (client) => {
         // Embed inicial (utilizamos util)
         const embedSugerenciaUsuario = crearEmbed(
             '🚀 NUEVA SUGERENCIA',
-            `Bienvenido al canal de <#${CONFIG.SUGERENCIAS_CHANNEL_ID}>.\n Escribe tu sugerencia para que todos puedan votar.\n👤 ¡Gracias por tu sugerencia <@${message.author.id}>!`,
+            `Bienvenido al canal de <#${SUGERENCIAS_CHANNEL_ID}>.\n Escribe tu sugerencia para que todos puedan votar.\n👤 ¡Gracias por tu sugerencia <@${message.author.id}>!`,
             0xA259FF
         ).addFields({ name: '💡 Sugerencia:', value: codeBlock(message.content) });
 
@@ -81,7 +81,7 @@ module.exports = (client) => {
                 .setStyle(ButtonStyle.Danger)
         );
 
-        const aprobacionChannel = client.channels.cache.get(CONFIG.APROBACION_CHANNEL_ID);
+        const aprobacionChannel = client.channels.cache.get(APROBACION_CHANNEL_ID);
         if (aprobacionChannel) {
             await aprobacionChannel.send({
                 embeds: [embedAprobacion],
@@ -142,7 +142,7 @@ module.exports = (client) => {
         // ---- Aprobar/Denegar ----
         if (action === 'aprobar' || action === 'denegar') {
             const member = await interaction.guild.members.fetch(userId);
-            if (!member.roles.cache.has(CONFIG.ADMIN_ROLE_ID)) {
+            if (!member.roles.cache.has(ADMIN_ROLE_ID)) {
                 await interaction.reply({ content: '❌ No tienes permisos para realizar esta acción.', ephemeral: true });
                 return;
             }
@@ -159,7 +159,7 @@ module.exports = (client) => {
                 .setDescription(description);
 
             const targetChannel = client.channels.cache.get(
-                action === 'aprobar' ? CONFIG.APROBADAS_CHANNEL_ID : CONFIG.DENEGADAS_CHANNEL_ID
+                action === 'aprobar' ? APROBADAS_CHANNEL_ID : DENEGADAS_CHANNEL_ID
             );
 
             if (targetChannel) {
