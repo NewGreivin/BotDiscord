@@ -1,6 +1,6 @@
 const { ChannelType } = require("discord.js");
 const { crearEmbed } = require('@/utils/embedUtil');
-const { BOOST_CHANNEL_ID } = require('@/utils/constantsUtil');
+const { BOOST_CHANNEL_ID } = require('@/utils/constansUtil');
 
 module.exports = {
     name: "guildMemberUpdate",
