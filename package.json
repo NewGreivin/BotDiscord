@@ -4,22 +4,23 @@
     "description": "Un bot de Discord diseñado para FlowMc",
     "main": "index.js",
     "scripts": {
-      "start": "node index.js",
-      "dev": "nodemon index.js"
+        "start": "node index.js",
+        "dev": "nodemon index.js"
     },
     "dependencies": {
-      "discord.js": "^14.7.1",
-      "dotenv": "^16.0.3"
+        "discord.js": "^14.7.1",
+        "dotenv": "^16.0.3",
+        "module-alias": "^2.2.3"
     },
     "devDependencies": {
-      "nodemon": "^2.0.22"
+        "nodemon": "^3.1.10"
     },
     "engines": {
-      "node": ">=18.0.0"
+        "node": ">=18.0.0"
     },
-  "author": "New Greivin",
-  "license": "MIT",
-  "_moduleAliases": {
-    "@": "src"
-  }
+    "author": "New Greivin",
+    "license": "MIT",
+    "_moduleAliases": {
+        "@": "src"
+    }
 }

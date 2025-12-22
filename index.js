@@ -5,13 +5,15 @@ const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const sugerencias = require('@/systems/sugerencias/sugerencia');
 const { enviarInformacionSiNoExiste } = require('@/systems/informacion/informacion');
 const boostSystem = require('@/systems/boosts/boost');
+const bienvenidaSystem = require('@/systems/bienvenidas/bienvenida');
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMessageReactions
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.GuildMembers
     ],
     partials: [Partials.Message, Partials.Reaction]
 });
@@ -24,6 +26,10 @@ client.once('ready', async () => {
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     await boostSystem.execute(oldMember, newMember);
+});
+
+client.on('guildMemberAdd', async (member) => {
+    await bienvenidaSystem.execute(member);
 });
 
 sugerencias(client);
