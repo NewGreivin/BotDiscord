@@ -10,4 +10,10 @@ module.exports = {
 
     // Roles
     ADMIN_ROLE_ID: '1311041691796377621',
+
+    // Datos del servidor desde .env
+    SHOP_URL: process.env.SHOP_URL,
+    JAVA_IP: process.env.JAVA_IP,
+    BEDROCK_IP: process.env.BEDROCK_IP,
+    BEDROCK_PUERTO: process.env.BEDROCK_PUERTO,
 };
