@@ -6,6 +6,7 @@ const sugerencias = require('@/systems/sugerencias/sugerencia');
 const { enviarInformacionSiNoExiste } = require('@/systems/informacion/informacion');
 const boostSystem = require('@/systems/boosts/boost');
 const bienvenidaSystem = require('@/systems/bienvenidas/bienvenida');
+const encuestaSystem = require('@/systems/encuestas/encuesta');
 
 const client = new Client({
     intents: [
@@ -30,6 +31,60 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 
 client.on('guildMemberAdd', async (member) => {
     await bienvenidaSystem.execute(member);
+});
+
+// Handler para mensajes (opciones de encuesta)
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+    
+    // Manejar opciones de encuesta
+    await encuestaSystem.handleMensajeOpcion(message);
+});
+
+// Handler para interacciones (comandos slash, botones, modales, select menus)
+client.on('interactionCreate', async (interaction) => {
+    try {
+        // Comando /encuestacrear
+        if (interaction.isChatInputCommand() && interaction.commandName === 'encuestacrear') {
+            return await encuestaSystem.execute(interaction);
+        }
+        
+        // Select menu de duración
+        if (interaction.isStringSelectMenu() && interaction.customId === 'duracion_select') {
+            return await encuestaSystem.handleDuracionSelect(interaction);
+        }
+        
+        // Botón "Listo"
+        if (interaction.isButton() && interaction.customId === 'encuesta_opciones_listo') {
+            return await encuestaSystem.handleOpcionesListo(interaction);
+        }
+        
+        // Botón "Cancelar"
+        if (interaction.isButton() && interaction.customId === 'encuesta_cancelar') {
+            return await encuestaSystem.handleCancelar(interaction);
+        }
+        
+        // Modal final de encuesta
+        if (interaction.isModalSubmit() && interaction.customId === 'modal_encuesta') {
+            return await encuestaSystem.handleModal(interaction);
+        }
+        
+        // Select menu de votación
+        if (interaction.isStringSelectMenu() && interaction.customId.startsWith('encuesta_')) {
+            return await encuestaSystem.handleVote(interaction);
+        }
+    } catch (error) {
+        console.error('[Encuesta] Error manejando interacción:', error);
+    }
+});
+
+// Manejar errores globales para que el bot no se caiga
+client.on('error', (error) => {
+    console.error('[Bot] Error del cliente:', error);
+});
+
+process.on('unhandledRejection', (error) => {
+    console.error('[Bot] Promesa rechazada no manejada:', error);
 });
 
 sugerencias(client);
