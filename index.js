@@ -7,6 +7,7 @@ const { enviarInformacionSiNoExiste } = require('@/systems/informacion/informaci
 const boostSystem = require('@/systems/boosts/boost');
 const bienvenidaSystem = require('@/systems/bienvenidas/bienvenida');
 const encuestaSystem = require('@/systems/encuestas/encuesta');
+const actualizacionesSystem = require('@/systems/actualizaciones/actualizaciones');
 
 const client = new Client({
     intents: [
@@ -44,6 +45,23 @@ client.on('messageCreate', async (message) => {
 // Handler para interacciones (comandos slash, botones, modales, select menus)
 client.on('interactionCreate', async (interaction) => {
     try {
+        // ===== SISTEMA DE ACTUALIZACIONES =====
+        // Comando /cambios
+        if (interaction.isChatInputCommand() && interaction.commandName === 'cambios') {
+            return await actualizacionesSystem.execute(interaction);
+        }
+        
+        // Select menu de tipo de cambio
+        if (interaction.isStringSelectMenu() && interaction.customId === 'tipo_cambio_select') {
+            return await actualizacionesSystem.handleTipoCambioSelect(interaction);
+        }
+        
+        // Modal de cambios
+        if (interaction.isModalSubmit() && interaction.customId === 'modal_cambios') {
+            return await actualizacionesSystem.handleModal(interaction);
+        }
+
+        // ===== SISTEMA DE ENCUESTAS =====
         // Comando /encuestacrear
         if (interaction.isChatInputCommand() && interaction.commandName === 'encuestacrear') {
             return await encuestaSystem.execute(interaction);
@@ -74,7 +92,7 @@ client.on('interactionCreate', async (interaction) => {
             return await encuestaSystem.handleVote(interaction);
         }
     } catch (error) {
-        console.error('[Encuesta] Error manejando interacción:', error);
+        console.error('[Bot] Error manejando interacción:', error);
     }
 });
 
