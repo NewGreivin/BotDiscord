@@ -8,6 +8,7 @@ const boostSystem = require('@/systems/boosts/boost');
 const bienvenidaSystem = require('@/systems/bienvenidas/bienvenida');
 const encuestaSystem = require('@/systems/encuestas/encuesta');
 const actualizacionesSystem = require('@/systems/actualizaciones/actualizaciones');
+const sorteosSystem = require('@/systems/sorteos/sorteos');
 
 const client = new Client({
     intents: [
@@ -45,6 +46,22 @@ client.on('messageCreate', async (message) => {
 // Handler para interacciones (comandos slash, botones, modales, select menus)
 client.on('interactionCreate', async (interaction) => {
     try {
+        // ===== SISTEMA DE SORTEOS =====
+        // Comando /sorteo
+        if (interaction.isChatInputCommand() && interaction.commandName === 'sorteo') {
+            return await sorteosSystem.execute(interaction);
+        }
+        
+        // Modal de sorteo
+        if (interaction.isModalSubmit() && interaction.customId === 'modal_sorteo') {
+            return await sorteosSystem.handleModal(interaction);
+        }
+        
+        // Botón de participar
+        if (interaction.isButton() && interaction.customId === 'sorteo_participar') {
+            return await sorteosSystem.handleParticipar(interaction);
+        }
+
         // ===== SISTEMA DE ACTUALIZACIONES =====
         // Comando /cambios
         if (interaction.isChatInputCommand() && interaction.commandName === 'cambios') {
