@@ -9,6 +9,7 @@ const bienvenidaSystem = require('@/systems/bienvenidas/bienvenida');
 const encuestaSystem = require('@/systems/encuestas/encuesta');
 const actualizacionesSystem = require('@/systems/actualizaciones/actualizaciones');
 const sorteosSystem = require('@/systems/sorteos/sorteos');
+//const TiendaAlertas = require('@/systems/tienda/tienda_Alertas');
 
 const client = new Client({
     intents: [
@@ -25,6 +26,10 @@ client.once('ready', async () => {
     console.log(`✅ Bot conectado como: ${client.user.tag}`);
 
     await enviarInformacionSiNoExiste(client);
+    
+    // Iniciar servidor de webhooks para alertas de tienda
+    //const tiendaAlertas = new TiendaAlertas(client);
+    //tiendaAlertas.start();
 });
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {

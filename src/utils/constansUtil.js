@@ -9,6 +9,7 @@ module.exports = {
     WELCOME_CHANNEL_ID: '1452120258092597319',
     ACTUALIZACIONES_CHANNEL_ID: '1453130986622816277',
     SORTEOS_CHANNEL_ID: '1453182712377508103',
+    COMPRAS_CHANNEL_ID: '1234567890123456789', 
 
     // Roles
     ADMIN_ROLE_ID: '1311041691796377621',
@@ -18,4 +19,8 @@ module.exports = {
     JAVA_IP: process.env.JAVA_IP,
     BEDROCK_IP: process.env.BEDROCK_IP,
     BEDROCK_PUERTO: process.env.BEDROCK_PUERTO,
+    
+    // Configuración de Tebex
+    TEBEX_SECRET: process.env.TEBEX_SECRET, 
+    WEBHOOK_PORT: process.env.WEBHOOK_PORT || 3000,
 };
