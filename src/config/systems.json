@@ -1,0 +1,38 @@
+{
+    "systems": {
+        "sugerencias": {
+            "enabled": true,
+            "description": "Sistema de sugerencias de usuarios"
+        },
+        "informacion": {
+            "enabled": true,
+            "description": "Sistema de información del servidor"
+        },
+        "boosts": {
+            "enabled": true,
+            "description": "Sistema de notificaciones de boosts"
+        },
+        "bienvenidas": {
+            "enabled": true,
+            "description": "Sistema de mensajes de bienvenida"
+        },
+        "encuestas": {
+            "enabled": true,
+            "description": "Sistema de creación de encuestas"
+        },
+        "actualizaciones": {
+            "enabled": true,
+            "description": "Sistema de anuncios de cambios"
+        },
+        "sorteos": {
+            "enabled": true,
+            "description": "Sistema de sorteos"
+        },
+        "tienda": {
+            "enabled": false,
+            "description": "Sistema de alertas de tienda"
+        }
+    },
+    "lastUpdate": "2025-12-24T22:37:10.165Z",
+    "version": "1.0.0"
+}

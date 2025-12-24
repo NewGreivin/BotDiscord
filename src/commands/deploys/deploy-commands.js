@@ -4,11 +4,13 @@ const { REST, Routes } = require('discord.js');
 const encuestaSystem = require('@/systems/encuestas/encuesta');
 const actualizacionesSystem = require('@/systems/actualizaciones/actualizaciones');
 const sorteosSystem = require('@/systems/sorteos/sorteos');
+const reloadConfigCommand = require('@/commands/deploys/reloadconfig');
 
 const commands = [
     encuestaSystem.data.toJSON(),
     actualizacionesSystem.data.toJSON(),
-    sorteosSystem.data.toJSON()
+    sorteosSystem.data.toJSON(),
+    reloadConfigCommand.data.toJSON()
 ];
 
 const rest = new REST().setToken(process.env.BOT_TOKEN);

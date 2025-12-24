@@ -15,12 +15,23 @@ const {
     DENEGADAS_CHANNEL_ID,
     ADMIN_ROLE_ID
 } = require('@/utils/constansUtil');
+const systemsConfig = require('@/config/systemsConfig');
 
 module.exports = (client) => {
     let suggestionCounter = loadCounter();
 
     client.on('messageCreate', async (message) => {
-        if (message.author.bot || message.channel.id !== SUGERENCIAS_CHANNEL_ID) return;
+        // Ignorar mensajes de bots
+        if (message.author.bot) return;
+        
+        // Solo procesar mensajes del canal de sugerencias
+        if (message.channel.id !== SUGERENCIAS_CHANNEL_ID) return;
+        
+        // Verificar si el sistema está habilitado
+        if (!systemsConfig.isEnabled('sugerencias')) {
+            await message.delete().catch(() => {});
+            return;
+        }
 
         suggestionCounter++;
         saveCounter(suggestionCounter);
@@ -92,6 +103,8 @@ module.exports = (client) => {
 
     // Evento: Interacciones de botones
     client.on('interactionCreate', async (interaction) => {
+        // Verificar si el sistema está habilitado
+        if (!systemsConfig.isEnabled('sugerencias')) return;
         if (!interaction.isButton()) return;
 
         const [action, id] = interaction.customId.split('_');
@@ -143,31 +156,46 @@ module.exports = (client) => {
         if (action === 'aprobar' || action === 'denegar') {
             const member = await interaction.guild.members.fetch(userId);
             if (!member.roles.cache.has(ADMIN_ROLE_ID)) {
-                await interaction.reply({ content: '❌ No tienes permisos para realizar esta acción.', ephemeral: true });
+                await interaction.reply({ content: '❌ No tienes permisos suficientes.', ephemeral: true });
                 return;
             }
 
-            const color = action === 'aprobar' ? 0x00FF00 : 0xFF0000;
-            const title = action === 'aprobar' ? '✅ Sugerencia Aprobada' : '❌ Sugerencia Denegada';
-            const description = action === 'aprobar'
-                ? `¡Sugerencia aceptada por <@${interaction.user.id}>!`
-                : `¡Sugerencia denegada por <@${interaction.user.id}>!`;
+            try {
+                const color = action === 'aprobar' ? 0x00FF00 : 0xFF0000;
+                const title = action === 'aprobar' ? '✅ Sugerencia Aprobada' : '❌ Sugerencia Denegada';
+                const description = action === 'aprobar'
+                    ? `¡Sugerencia aceptada por <@${interaction.user.id}>!`
+                    : `¡Sugerencia denegada por <@${interaction.user.id}>!`;
 
-            const embed = EmbedBuilder.from(interaction.message.embeds[0])
-                .setColor(color)
-                .setTitle(title)
-                .setDescription(description);
+                const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setColor(color)
+                    .setTitle(title)
+                    .setDescription(description);
 
-            const targetChannel = client.channels.cache.get(
-                action === 'aprobar' ? APROBADAS_CHANNEL_ID : DENEGADAS_CHANNEL_ID
-            );
+                const targetChannelId = action === 'aprobar' ? APROBADAS_CHANNEL_ID : DENEGADAS_CHANNEL_ID;
+                const targetChannel = client.channels.cache.get(targetChannelId);
 
-            if (targetChannel) {
+                if (!targetChannel) {
+                    await interaction.reply({ 
+                        content: `❌ Error: No se encontró el canal de destino.`, 
+                        ephemeral: true 
+                    });
+                    return;
+                }
+
                 await targetChannel.send({ embeds: [embed] });
+                await interaction.message.delete();
+                await interaction.reply({ 
+                    content: `✅ Sugerencia #${id} ${action === 'aprobar' ? 'aprobada' : 'denegada'}.`, 
+                    ephemeral: true 
+                });
+            } catch (error) {
+                console.error('[Sugerencias] Error al aprobar/denegar:', error);
+                await interaction.reply({ 
+                    content: `❌ Error al procesar la sugerencia: ${error.message}`, 
+                    ephemeral: true 
+                });
             }
-
-            await interaction.message.delete();
-            await interaction.reply({ content: `Sugerencia #${id} ${action === 'aprobar' ? 'aprobada' : 'denegada'}.`, ephemeral: true });
         }
 
         // ---- Ver votantes ----
