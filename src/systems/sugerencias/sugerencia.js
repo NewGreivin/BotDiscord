@@ -38,7 +38,7 @@ module.exports = (client) => {
 
         // Embed inicial (utilizamos util)
         const embedSugerenciaUsuario = crearEmbed(
-            '🚀 NUEVA SUGERENCIA',
+            `🚀 NUEVA SUGERENCIA - #${suggestionCounter}`,
             `Bienvenido al canal de <#${SUGERENCIAS_CHANNEL_ID}>.\n Escribe tu sugerencia para que todos puedan votar.\n👤 ¡Gracias por tu sugerencia <@${message.author.id}>!`,
             0xA259FF
         ).addFields({ name: '💡 Sugerencia:', value: codeBlock(message.content) });
@@ -76,7 +76,7 @@ module.exports = (client) => {
 
         // Embed de aprobación
         const embedAprobacion = crearEmbed(
-            '🚀 NUEVA SUGERENCIA',
+            `🚀 NUEVA SUGERENCIA - #${suggestionCounter}`,
             `¡Sugerencia enviada por <@${message.author.id}>!`,
             0xA259FF
         ).addFields({ name: '💡 Sugerencia:', value: codeBlock(message.content) });
@@ -156,46 +156,30 @@ module.exports = (client) => {
         if (action === 'aprobar' || action === 'denegar') {
             const member = await interaction.guild.members.fetch(userId);
             if (!member.roles.cache.has(ADMIN_ROLE_ID)) {
-                await interaction.reply({ content: '❌ No tienes permisos suficientes.', ephemeral: true });
+                await interaction.reply({ content: '❌ No tienes permisos suficientes.', flags: 64 });
                 return;
             }
 
-            try {
-                const color = action === 'aprobar' ? 0x00FF00 : 0xFF0000;
-                const title = action === 'aprobar' ? '✅ Sugerencia Aprobada' : '❌ Sugerencia Denegada';
-                const description = action === 'aprobar'
-                    ? `¡Sugerencia aceptada por <@${interaction.user.id}>!`
-                    : `¡Sugerencia denegada por <@${interaction.user.id}>!`;
+            // Crear modal para solicitar motivo
+            const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+            
+            const modal = new ModalBuilder()
+                .setCustomId(`${action}_modal_${id}`)
+                .setTitle(action === 'aprobar' ? 'Aprobar Sugerencia' : 'Denegar Sugerencia');
 
-                const embed = EmbedBuilder.from(interaction.message.embeds[0])
-                    .setColor(color)
-                    .setTitle(title)
-                    .setDescription(description);
+            const motivoInput = new TextInputBuilder()
+                .setCustomId('motivo')
+                .setLabel('Motivo')
+                .setStyle(TextInputStyle.Paragraph)
+                .setPlaceholder(action === 'aprobar' ? 'Ingresa el motivo de la aprobación...' : 'Ingresa el motivo de la denegación...')
+                .setRequired(true)
+                .setMinLength(5)
+                .setMaxLength(500);
 
-                const targetChannelId = action === 'aprobar' ? APROBADAS_CHANNEL_ID : DENEGADAS_CHANNEL_ID;
-                const targetChannel = client.channels.cache.get(targetChannelId);
+            const row = new ActionRowBuilder().addComponents(motivoInput);
+            modal.addComponents(row);
 
-                if (!targetChannel) {
-                    await interaction.reply({ 
-                        content: `❌ Error: No se encontró el canal de destino.`, 
-                        ephemeral: true 
-                    });
-                    return;
-                }
-
-                await targetChannel.send({ embeds: [embed] });
-                await interaction.message.delete();
-                await interaction.reply({ 
-                    content: `✅ Sugerencia #${id} ${action === 'aprobar' ? 'aprobada' : 'denegada'}.`, 
-                    ephemeral: true 
-                });
-            } catch (error) {
-                console.error('[Sugerencias] Error al aprobar/denegar:', error);
-                await interaction.reply({ 
-                    content: `❌ Error al procesar la sugerencia: ${error.message}`, 
-                    ephemeral: true 
-                });
-            }
+            await interaction.showModal(modal);
         }
 
         // ---- Ver votantes ----
@@ -213,7 +197,61 @@ module.exports = (client) => {
             const respuesta = `**Votantes de Like:**\n${votantesLike}\n\n**Votantes de Dislike:**\n${votantesDislike}`;
 
             if (!interaction.replied) {
-                await interaction.reply({ content: respuesta, ephemeral: true });
+                await interaction.reply({ content: respuesta, flags: 64 });
+            }
+        }
+    });
+
+    // Evento: Manejo de modals (aprobar/denegar con motivo)
+    client.on('interactionCreate', async (interaction) => {
+        if (!systemsConfig.isEnabled('sugerencias')) return;
+        if (!interaction.isModalSubmit()) return;
+
+        const customId = interaction.customId;
+        if (!customId.includes('_modal_')) return;
+
+        const [action, , id] = customId.split('_');
+        if (action !== 'aprobar' && action !== 'denegar') return;
+
+        try {
+            const motivo = interaction.fields.getTextInputValue('motivo');
+            
+            const color = action === 'aprobar' ? 0x00FF00 : 0xFF0000;
+            const title = action === 'aprobar' ? '✅ Sugerencia Aprobada' : '❌ Sugerencia Denegada';
+            const description = action === 'aprobar'
+                ? `¡Sugerencia aceptada por <@${interaction.user.id}>!`
+                : `¡Sugerencia denegada por <@${interaction.user.id}>!`;
+
+            const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                .setColor(color)
+                .setTitle(title)
+                .setDescription(description)
+                .addFields({ name: '📝 Motivo:', value: codeBlock(motivo) });
+
+            const targetChannelId = action === 'aprobar' ? APROBADAS_CHANNEL_ID : DENEGADAS_CHANNEL_ID;
+            const targetChannel = client.channels.cache.get(targetChannelId);
+
+            if (!targetChannel) {
+                await interaction.reply({ 
+                    content: `❌ Error: No se encontró el canal de destino.`, 
+                    flags: 64 
+                });
+                return;
+            }
+
+            await targetChannel.send({ embeds: [embed] });
+            await interaction.message.delete();
+            await interaction.reply({ 
+                content: `✅ Sugerencia #${id} ${action === 'aprobar' ? 'aprobada' : 'denegada'}.`, 
+                flags: 64 
+            });
+        } catch (error) {
+            console.error('[Sugerencias] Error al procesar modal:', error);
+            if (!interaction.replied) {
+                await interaction.reply({ 
+                    content: `❌ Error al procesar la sugerencia: ${error.message}`, 
+                    flags: 64 
+                });
             }
         }
     });

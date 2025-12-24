@@ -26,7 +26,7 @@ const client = new Client({
     partials: [Partials.Message, Partials.Reaction]
 });
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`✅ Bot conectado como: ${client.user.tag}`);
     
     // Mostrar info de sistemas
