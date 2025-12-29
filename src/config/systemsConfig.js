@@ -39,10 +39,6 @@ class SystemsConfig {
                     enabled: true,
                     description: 'Sistema de sugerencias de usuarios'
                 },
-                informacion: {
-                    enabled: true,
-                    description: 'Sistema de información del servidor'
-                },
                 boosts: {
                     enabled: true,
                     description: 'Sistema de notificaciones de boosts'

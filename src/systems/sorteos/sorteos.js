@@ -10,9 +10,95 @@ const {
     PermissionFlagsBits,
 } = require("discord.js");
 const { ADMIN_ROLE_ID, SORTEOS_CHANNEL_ID } = require("@/utils/constansUtil");
+const fs = require('fs');
+const path = require('path');
 
 // Objeto en memoria para guardar sorteos activos
 const sorteos = {};
+
+// Ruta del archivo de persistencia
+const SORTEOS_FILE = path.join(__dirname, '..', '..', '..', 'data', 'sorteos.json');
+
+/**
+ * Guarda los sorteos activos en archivo JSON
+ */
+function guardarSorteos() {
+    try {
+        // Convertir Set a Array para poder serializar
+        const sorteosSerializables = {};
+        for (const [id, sorteo] of Object.entries(sorteos)) {
+            sorteosSerializables[id] = {
+                ...sorteo,
+                participantes: Array.from(sorteo.participantes),
+                fechaFinalizacion: sorteo.fechaFinalizacion.toISOString(),
+                timer: null // No guardamos el timer
+            };
+        }
+        
+        fs.writeFileSync(SORTEOS_FILE, JSON.stringify(sorteosSerializables, null, 2));
+    } catch (error) {
+        console.error('[Sorteos] Error al guardar sorteos:', error);
+    }
+}
+
+/**
+ * Carga los sorteos desde archivo JSON
+ */
+function cargarSorteos() {
+    try {
+        if (fs.existsSync(SORTEOS_FILE)) {
+            const data = fs.readFileSync(SORTEOS_FILE, 'utf8');
+            const sorteosGuardados = JSON.parse(data);
+            
+            for (const [id, sorteo] of Object.entries(sorteosGuardados)) {
+                sorteos[id] = {
+                    ...sorteo,
+                    participantes: new Set(sorteo.participantes),
+                    fechaFinalizacion: new Date(sorteo.fechaFinalizacion),
+                    timer: null
+                };
+            }
+        }
+    } catch (error) {
+        console.error('[Sorteos] Error al cargar sorteos:', error);
+    }
+}
+
+function eliminarSorteoGuardado(sorteoId) {
+    delete sorteos[sorteoId];
+    guardarSorteos();
+}
+
+/**
+ * Inicializa los sorteos activos restaurando timers
+ * Debe llamarse cuando el bot se inicia
+ */
+async function inicializarSorteos(client) {
+    cargarSorteos();
+    
+    const ahora = new Date();
+    const sorteosAEliminar = [];
+    
+    for (const [sorteoId, sorteo] of Object.entries(sorteos)) {
+        const tiempoRestante = sorteo.fechaFinalizacion - ahora;
+        
+        // Si el sorteo ya expiró, finalizarlo inmediatamente
+        if (tiempoRestante <= 0) {
+            await module.exports.finalizarSorteo(sorteoId, client);
+            sorteosAEliminar.push(sorteoId);
+        } else {
+            // Restaurar el timer
+            sorteos[sorteoId].timer = setTimeout(async () => {
+                await module.exports.finalizarSorteo(sorteoId, client);
+            }, tiempoRestante);
+        }
+    }
+    
+    // Limpiar sorteos que se finalizaron
+    for (const id of sorteosAEliminar) {
+        eliminarSorteoGuardado(id);
+    }
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -210,6 +296,9 @@ module.exports = {
                 await this.finalizarSorteo(sorteoId, interaction.client);
             }, tiempoRestante);
 
+            // Guardar sorteo en archivo para persistencia
+            guardarSorteos();
+
             // Responder de forma invisible
             await interaction.deferUpdate();
 
@@ -256,6 +345,9 @@ module.exports = {
 
             // Agregar participante
             sorteo.participantes.add(userId);
+            
+            // Persistir cambio
+            guardarSorteos();
 
             // Actualizar el embed
             let embedDescripcion = `🎊 **Hosteado por:** <@${sorteo.creadorId}>\n`;
@@ -296,16 +388,32 @@ module.exports = {
     async finalizarSorteo(sorteoId, client) {
         try {
             const sorteo = sorteos[sorteoId];
-            if (!sorteo || sorteo.finalizado) return;
+            if (!sorteo || sorteo.finalizado) {
+                // Si el sorteo no existe o ya finalizó, limpiar de archivo
+                eliminarSorteoGuardado(sorteoId);
+                return;
+            }
 
             sorteo.finalizado = true;
+            
+            // Limpiar timer si existe
+            if (sorteo.timer) {
+                clearTimeout(sorteo.timer);
+                sorteo.timer = null;
+            }
 
-            // Obtener el canal y el mensaje
-            const canal = await client.channels.fetch(sorteo.channelId);
-            if (!canal) return;
+            // Obtener el canal y el mensaje con manejo de errores
+            const canal = await client.channels.fetch(sorteo.channelId).catch(() => null);
+            if (!canal) {
+                eliminarSorteoGuardado(sorteoId);
+                return;
+            }
 
-            const mensaje = await canal.messages.fetch(sorteo.messageId);
-            if (!mensaje) return;
+            const mensaje = await canal.messages.fetch(sorteo.messageId).catch(() => null);
+            if (!mensaje) {
+                eliminarSorteoGuardado(sorteoId);
+                return;
+            }
 
             // Deshabilitar el botón
             const botonDeshabilitado = ButtonBuilder.from(mensaje.components[0].components[0])
@@ -323,8 +431,8 @@ module.exports = {
                     .setColor('#FF0000')
                     .setDescription(`${mensaje.embeds[0].description}\n\n**❌ El sorteo ha finalizado sin participantes.**`);
 
-                await mensaje.edit({ embeds: [embedFinal], components: [rowDeshabilitado] });
-                await mensaje.reply('😢 **El sorteo ha finalizado sin participantes.**');
+                await mensaje.edit({ embeds: [embedFinal], components: [rowDeshabilitado] }).catch(() => {});
+                await mensaje.reply('😢 **El sorteo ha finalizado sin participantes.**').catch(() => {});
 
             } else if (participantesArray.length <= sorteo.ganadores) {
                 // Todos ganan
@@ -333,10 +441,10 @@ module.exports = {
                 const embedFinal = EmbedBuilder.from(mensaje.embeds[0])
                     .setColor('#FFD700');
 
-                await mensaje.edit({ embeds: [embedFinal], components: [rowDeshabilitado] });
+                await mensaje.edit({ embeds: [embedFinal], components: [rowDeshabilitado] }).catch(() => {});
 
                 const ganadoresMenciones = ganadores.map(id => `<@${id}>`).join(', ');
-                await mensaje.reply(`🎊 **¡Sorteo finalizado!**\n\n🏆 **Ganadores:** ${ganadoresMenciones}\n\n¡Felicidades a todos los participantes! 🎉`);
+                await mensaje.reply(`🎊 **¡Sorteo finalizado!**\n\n🏆 **Ganadores:** ${ganadoresMenciones}\n\n¡Felicidades a todos los participantes! 🎉`).catch(() => {});
 
             } else {
                 // Sorteo normal
@@ -346,17 +454,22 @@ module.exports = {
                 const embedFinal = EmbedBuilder.from(mensaje.embeds[0])
                     .setColor('#FFD700');
 
-                await mensaje.edit({ embeds: [embedFinal], components: [rowDeshabilitado] });
+                await mensaje.edit({ embeds: [embedFinal], components: [rowDeshabilitado] }).catch(() => {});
 
                 const ganadoresMenciones = ganadores.map(id => `<@${id}>`).join(', ');
-                await mensaje.reply(`🎊 **¡Sorteo finalizado!**\n\n🏆 **Ganador(es):** ${ganadoresMenciones}\n\n¡Felicidades! 🎉`);
+                await mensaje.reply(`🎊 **¡Sorteo finalizado!**\n\n🏆 **Ganador(es):** ${ganadoresMenciones}\n\n¡Felicidades! 🎉`).catch(() => {});
             }
 
-            // Limpiar de memoria
-            delete sorteos[sorteoId];
+            // Limpiar de memoria y archivo
+            eliminarSorteoGuardado(sorteoId);
 
         } catch (error) {
             console.error('[Sorteos] Error finalizando sorteo:', error);
+            // Asegurar limpieza incluso si hay error
+            eliminarSorteoGuardado(sorteoId);
         }
-    }
+    },
+
+    // Exportar función de inicialización
+    inicializarSorteos
 };

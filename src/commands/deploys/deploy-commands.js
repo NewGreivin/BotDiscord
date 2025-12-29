@@ -5,12 +5,16 @@ const encuestaSystem = require('@/systems/encuestas/encuesta');
 const actualizacionesSystem = require('@/systems/actualizaciones/actualizaciones');
 const sorteosSystem = require('@/systems/sorteos/sorteos');
 const reloadConfigCommand = require('@/commands/deploys/reloadconfig');
+const tiendaCommand = require('@/commands/tienda');
+const ipCommand = require('@/commands/ip');
 
 const commands = [
     encuestaSystem.data.toJSON(),
     actualizacionesSystem.data.toJSON(),
     sorteosSystem.data.toJSON(),
-    reloadConfigCommand.data.toJSON()
+    reloadConfigCommand.data.toJSON(),
+    tiendaCommand.data.toJSON(),
+    ipCommand.data.toJSON()
 ];
 
 const rest = new REST().setToken(process.env.BOT_TOKEN);

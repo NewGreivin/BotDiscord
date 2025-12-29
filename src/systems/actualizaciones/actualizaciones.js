@@ -13,6 +13,21 @@ const { ARROW_EMOJI } = require("@/utils/emojiUtil");
 
 // Objeto temporal para guardar el tipo de cambio seleccionado por usuario
 const tempData = {};
+const tempDataTimers = {}; // Timers para limpiar datos abandonados
+
+// Tiempo de expiración para datos temporales (10 minutos)
+const TEMP_DATA_TIMEOUT = 10 * 60 * 1000;
+
+/**
+ * Limpia datos temporales de un usuario
+ */
+function limpiarTempData(userId) {
+    if (tempDataTimers[userId]) {
+        clearTimeout(tempDataTimers[userId]);
+        delete tempDataTimers[userId];
+    }
+    delete tempData[userId];
+}
 
 // Mapeo de colores según tipo de cambio
 const TIPO_COLORES = {
@@ -122,8 +137,18 @@ module.exports = {
             const tipoCambio = interaction.values[0];
             const userId = interaction.user.id;
 
+            // Limpiar timer anterior si existe
+            if (tempDataTimers[userId]) {
+                clearTimeout(tempDataTimers[userId]);
+            }
+
             // Guardar el tipo de cambio seleccionado temporalmente
             tempData[userId] = { tipo: tipoCambio };
+            
+            // Configurar timer para limpiar datos si el usuario no completa el flujo
+            tempDataTimers[userId] = setTimeout(() => {
+                limpiarTempData(userId);
+            }, TEMP_DATA_TIMEOUT);
 
             // Crear y mostrar el modal
             const modal = new ModalBuilder()
@@ -223,8 +248,8 @@ module.exports = {
             // Enviar el embed al canal de actualizaciones
             await canal.send({ embeds: [embedActualizacion] });
 
-            // Limpiar datos temporales
-            delete tempData[userId];
+            // Limpiar datos temporales y timer
+            limpiarTempData(userId);
 
             // Responder al modal de forma silenciosa
             await interaction.deferUpdate();
@@ -234,7 +259,7 @@ module.exports = {
             
             // Limpiar datos temporales en caso de error
             if (interaction.user) {
-                delete tempData[interaction.user.id];
+                limpiarTempData(interaction.user.id);
             }
 
             // Intentar responder con error
