@@ -101,13 +101,11 @@ class TiendaAlertas {
             const canal = await this.client.channels.fetch(COMPRAS_CHANNEL_ID);
             
             if (!canal) {
-                console.error('[Tienda] No se pudo encontrar el canal de compras');
                 return;
             }
 
             // Validar que el canal existe y es accesible
             if (!canal.isTextBased()) {
-                console.error('[Tienda] El canal configurado no es un canal de texto');
                 return;
             }
 
