@@ -7,13 +7,17 @@ const systemsConfig = require('@/config/systemsConfig');
 
 // Cargar sistemas solo si están habilitados
 const sugerencias = systemsConfig.loadSystem('sugerencias', '@/systems/sugerencias/sugerencia');
-const informacionSystem = systemsConfig.loadSystem('informacion', '@/systems/informacion/informacion');
 const boostSystem = systemsConfig.loadSystem('boosts', '@/systems/boosts/boost');
 const bienvenidaSystem = systemsConfig.loadSystem('bienvenidas', '@/systems/bienvenidas/bienvenida');
 const encuestaSystem = systemsConfig.loadSystem('encuestas', '@/systems/encuestas/encuesta');
 const actualizacionesSystem = systemsConfig.loadSystem('actualizaciones', '@/systems/actualizaciones/actualizaciones');
 const sorteosSystem = systemsConfig.loadSystem('sorteos', '@/systems/sorteos/sorteos');
 const tiendaSystem = systemsConfig.loadSystem('tienda', '@/systems/tienda/tienda_Alertas');
+const { iniciarEstados, detenerEstados } = require('@/systems/estado/estado');
+
+// Importar comandos simples
+const tiendaCommand = require('@/commands/tienda');
+const ipCommand = require('@/commands/ip');
 
 const client = new Client({
     intents: [
@@ -26,6 +30,9 @@ const client = new Client({
     partials: [Partials.Message, Partials.Reaction]
 });
 
+// Variable global para guardar referencia de tienda
+let tiendaAlertasInstance = null;
+
 client.once('clientReady', async () => {
     console.log(`✅ Bot conectado como: ${client.user.tag}`);
     
@@ -36,18 +43,21 @@ client.once('clientReady', async () => {
     if (info.disabled.length > 0) {
         console.log(`[SystemsConfig] ⏸️ Desactivados: ${info.disabled.join(', ')}`);
     }
-
-    // Sistema de información
-    if (systemsConfig.isEnabled('informacion') && informacionSystem?.enviarInformacionSiNoExiste) {
-        await informacionSystem.enviarInformacionSiNoExiste(client);
-    }
     
     // Sistema de tienda (si está habilitado)
     if (systemsConfig.isEnabled('tienda') && tiendaSystem) {
         const TiendaAlertas = tiendaSystem;
-        const tiendaAlertas = new TiendaAlertas(client);
-        tiendaAlertas.start();
+        tiendaAlertasInstance = new TiendaAlertas(client);
+        tiendaAlertasInstance.start();
     }
+
+    // Sistema de sorteos - inicializar y restaurar sorteos activos
+    if (systemsConfig.isEnabled('sorteos') && sorteosSystem) {
+        await sorteosSystem.inicializarSorteos(client);
+    }
+
+    // Sistema de estados rotativos
+    iniciarEstados(client);
 });
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
@@ -62,13 +72,42 @@ client.on('guildMemberAdd', async (member) => {
     }
 });
 
-// Handler para mensajes (opciones de encuesta)
+// Handler para mensajes (opciones de encuesta y comandos con prefijo)
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
     // Manejar opciones de encuesta
     if (systemsConfig.isEnabled('encuestas') && encuestaSystem) {
         await encuestaSystem.handleMensajeOpcion(message);
+    }
+
+    // Manejar comandos con prefijo !
+    if (message.content.startsWith('!')) {
+        const args = message.content.slice(1).trim().split(/ +/);
+        const commandName = args[0].toLowerCase();
+
+        try {
+            // Comando !tienda
+            if (commandName === 'tienda') {
+                const embed = await tiendaCommand.execute(null, true);
+                if (embed) {
+                    await message.reply({ embeds: [embed] });
+                }
+                return;
+            }
+
+            // Comando !ip
+            if (commandName === 'ip') {
+                const embed = await ipCommand.execute(null, true);
+                if (embed) {
+                    await message.reply({ embeds: [embed] });
+                }
+                return;
+            }
+        } catch (error) {
+            console.error('[Bot] Error ejecutando comando con prefijo:', error);
+            await message.reply('❌ Ocurrió un error al ejecutar el comando.').catch(() => {});
+        }
     }
 });
 
@@ -150,6 +189,17 @@ client.on('interactionCreate', async (interaction) => {
             const reloadConfigCommand = require('@/commands/deploys/reloadconfig');
             return await reloadConfigCommand.execute(interaction);
         }
+
+        // ===== COMANDOS SIMPLES =====
+        // Comando /tienda
+        if (interaction.isChatInputCommand() && interaction.commandName === 'tienda') {
+            return await tiendaCommand.execute(interaction);
+        }
+
+        // Comando /ip
+        if (interaction.isChatInputCommand() && interaction.commandName === 'ip') {
+            return await ipCommand.execute(interaction);
+        }
     } catch (error) {
         console.error('[Bot] Error manejando interacción:', error);
     }
@@ -163,6 +213,35 @@ client.on('error', (error) => {
 process.on('unhandledRejection', (error) => {
     console.error('[Bot] Promesa rechazada no manejada:', error);
 });
+
+// Manejar cierre graceful del bot
+async function cerrarBot(signal) {
+    console.log(`\n[Bot] Señal ${signal} recibida. Cerrando aplicación...`);
+    
+    try {
+        // Detener estados rotativos
+        detenerEstados();
+        
+        // Cerrar servidor de webhooks si está activo
+        if (tiendaAlertasInstance) {
+            await tiendaAlertasInstance.stop();
+        }
+        
+        // Desconectar cliente de Discord
+        await client.destroy();
+        
+        console.log('[Bot] Aplicación cerrada correctamente');
+        process.exit(0);
+    } catch (error) {
+        console.error('[Bot] Error al cerrar aplicación:', error);
+        process.exit(1);
+    }
+}
+
+// Capturar señales de cierre
+process.on('SIGINT', () => cerrarBot('SIGINT'));  // Ctrl+C
+process.on('SIGTERM', () => cerrarBot('SIGTERM')); // Kill
+process.on('SIGHUP', () => cerrarBot('SIGHUP'));   // Terminal cerrada
 
 // Inicializar sistema de sugerencias (siempre se carga, pero se verifica estado en runtime)
 if (sugerencias) {

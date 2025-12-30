@@ -9,10 +9,26 @@ const {
     ButtonBuilder,
     ButtonStyle,
 } = require("discord.js");
+const { ENCUESTAS_CHANNEL_ID } = require('@/utils/constansUtil');
 
 // Objeto en memoria para guardar encuestas y configuraciones temporales
 const encuestas = {};
 const tempConfig = {};
+const tempConfigTimers = {}; // Timers para limpiar datos abandonados
+
+// Tiempo de expiración para datos temporales (10 minutos)
+const TEMP_CONFIG_TIMEOUT = 10 * 60 * 1000;
+
+/**
+ * Limpia configuración temporal de un usuario
+ */
+function limpiarTempConfig(userId) {
+    if (tempConfigTimers[userId]) {
+        clearTimeout(tempConfigTimers[userId]);
+        delete tempConfigTimers[userId];
+    }
+    delete tempConfig[userId];
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -20,6 +36,14 @@ module.exports = {
         .setDescription("Abre un formulario para crear una encuesta personalizada"),
 
     async execute(interaction) {
+        // Validar que el comando se use en el canal correcto
+        if (interaction.channelId !== ENCUESTAS_CHANNEL_ID) {
+            return await interaction.reply({
+                content: `❌ Este comando solo puede usarse en <#${ENCUESTAS_CHANNEL_ID}>`,
+                flags: 64
+            });
+        }
+
         // Paso 1: Mostrar selector de duración
         const embed = new EmbedBuilder()
             .setTitle('📊 Crear Encuesta - Paso 1')
@@ -42,8 +66,7 @@ module.exports = {
                 { label: '6 días', value: '6d', emoji: '📅' },
                 { label: '7 días', value: '7d', emoji: '📅' },
                 { label: '15 días', value: '15d', emoji: '📅' },
-                { label: '30 días', value: '30d', emoji: '📅' },
-                { label: 'Permanente', value: 'permanente', emoji: '♾️' }
+                { label: '30 días', value: '30d', emoji: '📅' }
             ]);
 
         const row = new ActionRowBuilder().addComponents(selectDuracion);
@@ -52,14 +75,25 @@ module.exports = {
 
     async handleDuracionSelect(interaction) {
         const duracion = interaction.values[0];
+        const userId = interaction.user.id;
+        
+        // Limpiar timer anterior si existe
+        if (tempConfigTimers[userId]) {
+            clearTimeout(tempConfigTimers[userId]);
+        }
         
         // Guardar la duración temporalmente
-        tempConfig[interaction.user.id] = { 
+        tempConfig[userId] = { 
             duracion,
             opciones: [],
             estado: 'esperando_opciones',
             channelId: interaction.channelId
         };
+        
+        // Configurar timer para limpiar datos si el usuario no completa el flujo
+        tempConfigTimers[userId] = setTimeout(() => {
+            limpiarTempConfig(userId);
+        }, TEMP_CONFIG_TIMEOUT);
 
         // Crear embed con instrucciones
         const embed = new EmbedBuilder()
@@ -144,7 +178,7 @@ module.exports = {
     },
 
     async handleCancelar(interaction) {
-        delete tempConfig[interaction.user.id];
+        limpiarTempConfig(interaction.user.id);
         await interaction.update({ 
             embeds: [new EmbedBuilder()
                 .setTitle('❌ Encuesta cancelada')
@@ -213,8 +247,8 @@ module.exports = {
         const duracion = config.duracion;
         const opciones = config.opciones;
         
-        // Limpiar configuración temporal
-        delete tempConfig[interaction.user.id];
+        // Limpiar configuración temporal y timer
+        limpiarTempConfig(interaction.user.id);
 
         // Embed inicial (antes de crear la encuesta)
         const embed = new EmbedBuilder()
@@ -274,57 +308,60 @@ module.exports = {
         const updatedRow = new ActionRowBuilder().addComponents(updatedSelectMenu);
         await mensaje.edit({ components: [updatedRow] });
 
-        // Timer si es temporal
-        if (duracion !== "permanente") {
-            let ms;
-            if (duracion.endsWith("s")) ms = parseInt(duracion) * 1000;
-            else if (duracion.endsWith("m")) ms = parseInt(duracion) * 60 * 1000;
-            else if (duracion.endsWith("h")) ms = parseInt(duracion) * 60 * 60 * 1000;
-            else if (duracion.endsWith("d")) ms = parseInt(duracion) * 24 * 60 * 60 * 1000;
+        // Configurar timer de finalización (todas las encuestas tienen duración definida)
+        let ms;
+        if (duracion.endsWith("s")) ms = parseInt(duracion) * 1000;
+        else if (duracion.endsWith("m")) ms = parseInt(duracion) * 60 * 1000;
+        else if (duracion.endsWith("h")) ms = parseInt(duracion) * 60 * 60 * 1000;
+        else if (duracion.endsWith("d")) ms = parseInt(duracion) * 24 * 60 * 60 * 1000;
 
-            if (ms) {
-                encuestas[encuestaId].timer = setTimeout(async () => {
-                    const encuesta = encuestas[encuestaId];
-                    
-                    // Deshabilitar componentes
-                    const disabledSelectMenu = StringSelectMenuBuilder.from(mensaje.components[0].components[0])
-                        .setDisabled(true);
-                    
-                    const disabledRow = new ActionRowBuilder().addComponents(disabledSelectMenu);
-                    await mensaje.edit({ components: [disabledRow] });
+        if (ms) {
+            encuestas[encuestaId].timer = setTimeout(async () => {
+                const encuesta = encuestas[encuestaId];
+                
+                if (!encuesta) return; // Por si ya fue eliminada
+                
+                // Deshabilitar componentes
+                const disabledSelectMenu = StringSelectMenuBuilder.from(mensaje.components[0].components[0])
+                    .setDisabled(true);
+                
+                const disabledRow = new ActionRowBuilder().addComponents(disabledSelectMenu);
+                await mensaje.edit({ components: [disabledRow] }).catch(() => {});
 
-                    // Calcular ganador(es)
-                    const maxVotos = Math.max(...encuesta.votos);
-                    const ganadores = [];
-                    
-                    encuesta.opciones.forEach((op, i) => {
-                        if (encuesta.votos[i] === maxVotos) {
-                            ganadores.push({ opcion: op, votos: maxVotos });
-                        }
-                    });
-
-                    // Crear embed de resultados
-                    let resultadoTexto;
-                    if (maxVotos === 0) {
-                        resultadoTexto = '¡Nadie votó en esta encuesta! 😢';
-                    } else if (ganadores.length === 1) {
-                        const ganador = ganadores[0];
-                        resultadoTexto = `${ganador.opcion.emoji ? ganador.opcion.emoji + ' ' : ''}**${ganador.opcion.texto}**\n\n🏆 Ganador con ${ganador.votos} votos`;
-                    } else {
-                        resultadoTexto = '**Empate entre:**\n\n' + ganadores.map(g => 
-                            `${g.opcion.emoji ? g.opcion.emoji + ' ' : ''}${g.opcion.texto}`
-                        ).join('\n') + `\n\n🏆 Cada uno con ${maxVotos} votos`;
+                // Calcular ganador(es)
+                const maxVotos = Math.max(...encuesta.votos);
+                const ganadores = [];
+                
+                encuesta.opciones.forEach((op, i) => {
+                    if (encuesta.votos[i] === maxVotos) {
+                        ganadores.push({ opcion: op, votos: maxVotos });
                     }
+                });
 
-                    const resultadoEmbed = new EmbedBuilder()
-                        .setTitle('🏁 Encuesta Finalizada')
-                        .setDescription(`**${encuesta.pregunta}**\n\n${resultadoTexto}`)
-                        .setColor('#FFD700')
-                        .setTimestamp();
+                // Crear embed de resultados
+                let resultadoTexto;
+                if (maxVotos === 0) {
+                    resultadoTexto = '¡Nadie votó en esta encuesta! 😢';
+                } else if (ganadores.length === 1) {
+                    const ganador = ganadores[0];
+                    resultadoTexto = `${ganador.opcion.emoji ? ganador.opcion.emoji + ' ' : ''}**${ganador.opcion.texto}**\n\n🏆 Ganador con ${ganador.votos} votos`;
+                } else {
+                    resultadoTexto = '**Empate entre:**\n\n' + ganadores.map(g => 
+                        `${g.opcion.emoji ? g.opcion.emoji + ' ' : ''}${g.opcion.texto}`
+                    ).join('\n') + `\n\n🏆 Cada uno con ${maxVotos} votos`;
+                }
 
-                    await mensaje.reply({ embeds: [resultadoEmbed] });
-                }, ms);
-            }
+                const resultadoEmbed = new EmbedBuilder()
+                    .setTitle('🏁 Encuesta Finalizada')
+                    .setDescription(`**${encuesta.pregunta}**\n\n${resultadoTexto}`)
+                    .setColor('#FFD700')
+                    .setTimestamp();
+
+                await mensaje.reply({ embeds: [resultadoEmbed] }).catch(() => {});
+                
+                // Limpiar encuesta de memoria después de finalizar
+                delete encuestas[encuestaId];
+            }, ms);
         }
     },
 

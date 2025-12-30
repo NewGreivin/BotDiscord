@@ -12,6 +12,7 @@ class TiendaAlertas {
     constructor(client) {
         this.client = client;
         this.app = express();
+        this.server = null; // Referencia al servidor HTTP
         this.app.use(express.json());
         
         // Configurar rutas
@@ -31,7 +32,6 @@ class TiendaAlertas {
                 const secretHeader = req.headers['x-tebex-secret'];
                 
                 if (TEBEX_SECRET && secretHeader !== TEBEX_SECRET) {
-                    console.log('[Tienda] Webhook rechazado: Secret inválido');
                     return res.status(401).json({ error: 'Unauthorized' });
                 }
 
@@ -101,23 +101,25 @@ class TiendaAlertas {
             const canal = await this.client.channels.fetch(COMPRAS_CHANNEL_ID);
             
             if (!canal) {
-                console.error('[Tienda] No se pudo encontrar el canal de compras');
                 return;
             }
 
-            // Enviar el embed
+            // Validar que el canal existe y es accesible
+            if (!canal.isTextBased()) {
+                return;
+            }
+
+            // Enviar el embed solo al canal designado
             const mensaje = await canal.send({ 
                 embeds: [embed]
             });
 
-            // Agregar botón de tienda (opcional)
+            // Agregar botón de tienda (opcional) - también en el canal designado
             if (SHOP_URL) {
                 await canal.send({
                     content: `🛒 **¡TIENDA OFICIAL!** [Haz clic aquí](${SHOP_URL})`
                 });
             }
-
-            console.log(`[Tienda] Alerta de compra enviada: ${playerName}`);
 
         } catch (error) {
             console.error('[Tienda] Error al manejar compra:', error);
@@ -127,15 +129,44 @@ class TiendaAlertas {
     start() {
         const PORT = WEBHOOK_PORT || 3000;
         
-        this.app.listen(PORT, () => {
-            console.log(`✅ [Tienda] Servidor de webhooks iniciado en puerto ${PORT}`);
-            console.log(`📍 [Tienda] URL: http://localhost:${PORT}/tebex/webhook`);
-        });
+        try {
+            this.server = this.app.listen(PORT, () => {
+                console.log(`✅ [Tienda] Servidor de webhooks iniciado en puerto ${PORT}`);
+                console.log(`📍 [Tienda] URL: http://localhost:${PORT}/tebex/webhook`);
+            });
+            
+            // Manejar errores del servidor
+            this.server.on('error', (error) => {
+                if (error.code === 'EADDRINUSE') {
+                    console.error(`[Tienda] Error: El puerto ${PORT} ya está en uso`);
+                    console.error('[Tienda] Cierra la aplicación que está usando el puerto o cambia WEBHOOK_PORT');
+                } else {
+                    console.error('[Tienda] Error en servidor de webhooks:', error);
+                }
+            });
+        } catch (error) {
+            console.error('[Tienda] Error al iniciar servidor:', error);
+        }
     }
 
     stop() {
-        // Método para detener el servidor si es necesario
-        console.log('[Tienda] Deteniendo servidor de webhooks...');
+        return new Promise((resolve, reject) => {
+            if (!this.server) {
+                resolve();
+                return;
+            }
+            
+            this.server.close((error) => {
+                if (error) {
+                    console.error('[Tienda] Error al detener servidor:', error);
+                    reject(error);
+                } else {
+                    console.log('[Tienda] Servidor de webhooks detenido correctamente');
+                    this.server = null;
+                    resolve();
+                }
+            });
+        });
     }
 }
 
