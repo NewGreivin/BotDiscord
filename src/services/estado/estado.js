@@ -7,7 +7,7 @@
  * Los estados rotan automáticamente cada 30 segundos (configurable).
  * 
  * Uso:
- *   const { iniciarEstados } = require('./src/systems/estado/estado');
+ *   const { iniciarEstados } = require('./src/services/estado/estado');
  *   iniciarEstados(client);
  * 
  * ═══════════════════════════════════════════════════════════════════════════

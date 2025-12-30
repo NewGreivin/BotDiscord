@@ -1,9 +1,9 @@
 require('module-alias/register');
 require('dotenv').config();
 const { REST, Routes } = require('discord.js');
-const encuestaSystem = require('@/systems/encuestas/encuesta');
-const actualizacionesSystem = require('@/systems/actualizaciones/actualizaciones');
-const sorteosSystem = require('@/systems/sorteos/sorteos');
+const encuestaSystem = require('@/services/encuestas/encuesta');
+const actualizacionesSystem = require('@/services/actualizaciones/actualizaciones');
+const sorteosSystem = require('@/services/sorteos/sorteos');
 const reloadConfigCommand = require('@/commands/deploys/reloadconfig');
 const tiendaCommand = require('@/commands/tienda');
 const ipCommand = require('@/commands/ip');

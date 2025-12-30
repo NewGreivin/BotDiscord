@@ -6,14 +6,14 @@ const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const systemsConfig = require('@/config/systemsConfig');
 
 // Cargar sistemas solo si están habilitados
-const sugerencias = systemsConfig.loadSystem('sugerencias', '@/systems/sugerencias/sugerencia');
-const boostSystem = systemsConfig.loadSystem('boosts', '@/systems/boosts/boost');
-const bienvenidaSystem = systemsConfig.loadSystem('bienvenidas', '@/systems/bienvenidas/bienvenida');
-const encuestaSystem = systemsConfig.loadSystem('encuestas', '@/systems/encuestas/encuesta');
-const actualizacionesSystem = systemsConfig.loadSystem('actualizaciones', '@/systems/actualizaciones/actualizaciones');
-const sorteosSystem = systemsConfig.loadSystem('sorteos', '@/systems/sorteos/sorteos');
-const tiendaSystem = systemsConfig.loadSystem('tienda', '@/systems/tienda/tienda_Alertas');
-const { iniciarEstados, detenerEstados } = require('@/systems/estado/estado');
+const sugerencias = systemsConfig.loadSystem('sugerencias', '@/services/sugerencias/sugerencia');
+const boostSystem = systemsConfig.loadSystem('boosts', '@/services/boosts/boost');
+const bienvenidaSystem = systemsConfig.loadSystem('bienvenidas', '@/services/bienvenidas/bienvenida');
+const encuestaSystem = systemsConfig.loadSystem('encuestas', '@/services/encuestas/encuesta');
+const actualizacionesSystem = systemsConfig.loadSystem('actualizaciones', '@/services/actualizaciones/actualizaciones');
+const sorteosSystem = systemsConfig.loadSystem('sorteos', '@/services/sorteos/sorteos');
+const tiendaSystem = systemsConfig.loadSystem('tienda', '@/services/tienda/tienda_Alertas');
+const { iniciarEstados, detenerEstados } = require('@/services/estado/estado');
 
 // Importar comandos simples
 const tiendaCommand = require('@/commands/tienda');
