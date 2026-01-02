@@ -13,6 +13,7 @@ const encuestaSystem = systemsConfig.loadSystem('encuestas', '@/services/encuest
 const actualizacionesSystem = systemsConfig.loadSystem('actualizaciones', '@/services/actualizaciones/actualizaciones');
 const sorteosSystem = systemsConfig.loadSystem('sorteos', '@/services/sorteos/sorteos');
 const tiendaSystem = systemsConfig.loadSystem('tienda', '@/services/tienda/tienda_Alertas');
+const antilinksSystem = systemsConfig.loadSystem('antilinks', '@/services/antilinks/index');
 const { iniciarEstados, detenerEstados } = require('@/services/estado/estado');
 
 // Importar comandos simples
@@ -56,6 +57,11 @@ client.once('clientReady', async () => {
         await sorteosSystem.inicializarSorteos(client);
     }
 
+    // Sistema AntiLinks - inicializar
+    if (systemsConfig.isEnabled('antilinks') && antilinksSystem) {
+        antilinksSystem.initAntiLinks(client);
+    }
+
     // Sistema de estados rotativos
     iniciarEstados(client);
 });
@@ -75,6 +81,11 @@ client.on('guildMemberAdd', async (member) => {
 // Handler para mensajes (opciones de encuesta y comandos con prefijo)
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
+    
+    // Sistema AntiLinks - procesar primero
+    if (systemsConfig.isEnabled('antilinks') && antilinksSystem) {
+        await antilinksSystem.handleMessage(message, client);
+    }
     
     // Manejar opciones de encuesta
     if (systemsConfig.isEnabled('encuestas') && encuestaSystem) {
@@ -221,6 +232,11 @@ async function cerrarBot(signal) {
     try {
         // Detener estados rotativos
         detenerEstados();
+        
+        // Detener sistema antilinks y limpiar recursos
+        if (systemsConfig.isEnabled('antilinks') && antilinksSystem) {
+            antilinksSystem.stopAntiLinks();
+        }
         
         // Cerrar servidor de webhooks si está activo
         if (tiendaAlertasInstance) {

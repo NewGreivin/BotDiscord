@@ -1,0 +1,48 @@
+{
+  "antilinks": {
+    "allowedChannels": [],
+    "blockedChannels": [],
+    "allowedRoles": [],
+    "allowedDomains": [
+      "medal.tv",
+      "spotify.com"
+    ],
+    "blockedDomains": [
+      "streamable.com",
+      "roblox.com",
+      "bit.ly",
+      "tinyurl.com",
+      "discord.gg",
+      "tenor.com",
+      "t.co",
+      "goo.gl",
+      "ow.ly",
+      "shorturl.at",
+      "cutt.ly",
+      "youtube.com",
+      "youtu.be",
+      "twitch.tv",
+      "twitter.com",
+      "x.com",
+      "facebook.com",
+      "fb.com",
+      "fb.watch",
+      "instagram.com",
+      "tiktok.com",
+      "linkedin.com",
+      "snapchat.com",
+      "telegram.org",
+      "reddit.com",
+      "kick.com",
+      "threads.net",
+      "tenor.com",
+      "imgur.com",
+      "pinterest.com"
+    ],
+    "blockedFileTypes": [
+      ".gif"
+    ],
+    "deleteMessage": true,
+    "warnUser": true
+  }
+}
